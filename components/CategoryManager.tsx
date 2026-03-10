@@ -9,7 +9,16 @@ interface CategoryManagerProps {
   onBack: () => void;
 }
 
-const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#334155'];
+const COLORS = [
+  '#64748b', '#475569', '#ef4444', '#dc2626', 
+  '#f97316', '#ea580c', '#f59e0b', '#d97706', 
+  '#facc15', '#eab308', '#84cc16', '#65a30d', 
+  '#22c55e', '#16a34a', '#10b981', '#059669', 
+  '#14b8a6', '#0d9488', '#06b6d4', '#0891b2', 
+  '#0ea5e9', '#0284c7', '#3b82f6', '#2563eb', 
+  '#6366f1', '#4f46e5', '#8b5cf6', '#7c3aed', 
+  '#a855f7', '#9333ea', '#ec4899', '#f43f5e'
+];
 
 const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
   const categories = useQuery(anyApi.categories.get);
