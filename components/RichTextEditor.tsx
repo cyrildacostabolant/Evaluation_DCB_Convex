@@ -1,6 +1,8 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Bold, Italic, List, Image as ImageIcon, Heading1, Check, X, AlignLeft, AlignCenter, AlignRight, Maximize2, Superscript, Subscript, Sigma } from 'lucide-react';
+import { Bold, Italic, List, Image as ImageIcon, Heading1, Check, X, AlignLeft, AlignCenter, AlignRight, Maximize2, Superscript, Subscript, Sigma, Upload, Loader2 } from 'lucide-react';
+import { useMutation } from 'convex/react';
+import { anyApi } from 'convex/server';
 
 interface RichTextEditorProps {
   value: string;
@@ -21,6 +23,70 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, placeh
   // État pour la gestion de l'image sélectionnée
   const [selectedImg, setSelectedImg] = useState<HTMLImageElement | null>(null);
   const [imgWidth, setImgWidth] = useState<number>(100);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const generateUploadUrl = useMutation(anyApi.evaluations.generateUploadUrl);
+  const getStorageUrl = useMutation(anyApi.evaluations.getUrl);
+
+  const handleFileUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    
+    setIsUploading(true);
+    try {
+      const postUrl = await generateUploadUrl();
+      const result = await fetch(postUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      
+      if (!result.ok) throw new Error("Upload failed");
+      
+      const { storageId } = await result.json();
+      const url = await getStorageUrl({ storageId });
+      
+      if (url) {
+        restoreSelection();
+        const html = `<img src="${url}" style="display: block; margin: 10px auto; width: 50%;" />`;
+        document.execCommand('insertHTML', false, html);
+        handleInput();
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      alert("Erreur lors de l'upload de l'image.");
+    } finally {
+      setIsUploading(false);
+      setShowUrlInput(false);
+    }
+  };
+
+  const onPaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          await handleFileUpload(file);
+        }
+      }
+    }
+  };
+
+  const onDrop = async (e: React.DragEvent) => {
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+
+    for (let i = 0; i < files.length; i++) {
+      if (files[i].type.indexOf('image') !== -1) {
+        e.preventDefault();
+        await handleFileUpload(files[i]);
+      }
+    }
+  };
 
   // Sync value to innerHTML when value changes externally
   useEffect(() => {
@@ -216,34 +282,58 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, placeh
             type="button"
             title="Insérer une image"
           >
-            <ImageIcon size={16} />
+            {isUploading ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
           </button>
           
           {showUrlInput && (
-            <div className="flex items-center gap-1 bg-white border rounded shadow-sm animate-fade-in absolute left-2 top-10 z-10 p-2">
+            <div className="flex flex-col gap-2 bg-white border rounded-xl shadow-xl animate-fade-in absolute left-2 top-10 z-50 p-3 w-64">
+              <div className="flex items-center gap-1">
+                <input 
+                  type="text" 
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="URL de l'image (https://...)"
+                  className="text-xs p-2 border rounded-lg outline-none flex-grow bg-slate-50 focus:bg-white transition-all"
+                  autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && handleImageInsert()}
+                />
+                <button 
+                  onClick={handleImageInsert}
+                  className="p-2 hover:bg-green-100 text-green-600 rounded-lg"
+                  title="Valider"
+                >
+                  <Check size={16} />
+                </button>
+              </div>
+              
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-slate-100"></span>
+                </div>
+                <div className="relative flex justify-center text-[10px] uppercase tracking-widest text-slate-400">
+                  <span className="bg-white px-2">Ou</span>
+                </div>
+              </div>
+              
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center justify-center gap-2 p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-all text-xs font-bold"
+                type="button"
+              >
+                <Upload size={14} />
+                Téléverser un fichier
+              </button>
+              
               <input 
-                type="text" 
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="URL de l'image (https://...)"
-                className="text-xs p-1 border rounded outline-none w-48"
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && handleImageInsert()}
+                type="file" 
+                ref={fileInputRef}
+                className="hidden" 
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileUpload(file);
+                }}
               />
-              <button 
-                onClick={handleImageInsert}
-                className="p-1 hover:bg-green-100 text-green-600 rounded"
-                title="Valider"
-              >
-                <Check size={14} />
-              </button>
-              <button 
-                onClick={() => { setShowUrlInput(false); setImageUrl(''); }}
-                className="p-1 hover:bg-red-100 text-red-500 rounded"
-                title="Annuler"
-              >
-                <X size={14} />
-              </button>
             </div>
           )}
         </div>
@@ -368,6 +458,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, placeh
         onInput={handleInput}
         onBlur={handleInput}
         onClick={handleContentClick}
+        onPaste={onPaste}
+        onDrop={onDrop}
         data-placeholder={placeholder}
       />
     </div>

@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "tsc --noEmit",
+    "convex-sync": "echo sync",
     "preview": "vite preview"
   },
   "dependencies": {

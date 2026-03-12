@@ -18,6 +18,13 @@ function App() {
   
   const removeEvaluation = useMutation(anyApi.evaluations.remove);
   const toggleArchive = useMutation(anyApi.evaluations.toggleArchive);
+  const pingResult = useQuery(anyApi.evaluations.ping);
+
+  useEffect(() => {
+    if (pingResult) {
+      console.log("Backend Ping Result:", pingResult);
+    }
+  }, [pingResult]);
 
   const [selectedEvalId, setSelectedEvalId] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<{ eval: Evaluation, mode: 'student' | 'teacher' } | null>(null);

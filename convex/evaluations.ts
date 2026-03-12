@@ -9,7 +9,7 @@ export const get = query({
     for (const ev of evaluations) {
       const questions = await ctx.db
         .query("questions")
-        .withIndex("by_evaluation", (q) => q.eq("evaluation_id", ev._id as any))
+        .withIndex("by_evaluation", (q) => q.eq("evaluation_id", ev._id))
         .collect();
       
       result.push({
@@ -59,7 +59,7 @@ export const save = mutation({
       // delete old questions
       const oldQuestions = await ctx.db
         .query("questions")
-        .withIndex("by_evaluation", (q) => q.eq("evaluation_id", evalId as any))
+        .withIndex("by_evaluation", (q) => q.eq("evaluation_id", evalId))
         .collect();
       for (const q of oldQuestions) {
         await ctx.db.delete(q._id);
@@ -78,7 +78,7 @@ export const save = mutation({
       const { id, ...rest } = q;
       await ctx.db.insert("questions", {
         ...rest,
-        evaluation_id: evalId as string,
+        evaluation_id: evalId,
       });
     }
     
@@ -93,7 +93,7 @@ export const remove = mutation({
     await ctx.db.delete(evalId);
     const oldQuestions = await ctx.db
       .query("questions")
-      .withIndex("by_evaluation", (q) => q.eq("evaluation_id", evalId as any))
+      .withIndex("by_evaluation", (q) => q.eq("evaluation_id", evalId))
       .collect();
     for (const q of oldQuestions) {
       await ctx.db.delete(q._id);
@@ -105,5 +105,26 @@ export const toggleArchive = mutation({
   args: { id: v.id("evaluations"), is_archived: v.boolean() },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.id, { is_archived: args.is_archived });
+  },
+});
+
+export const ping = query({
+  args: {},
+  handler: async () => {
+    return "pong-" + Date.now();
+  },
+});
+
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const getUrl = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    return await ctx.storage.getUrl(args.storageId);
   },
 });

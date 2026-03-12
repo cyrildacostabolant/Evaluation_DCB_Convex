@@ -123,14 +123,96 @@ const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClo
     }
   };
 
+  const generateUploadUrl = useMutation(anyApi.evaluations.generateUploadUrl);
+  const getStorageUrl = useMutation(anyApi.evaluations.getUrl);
+
+  const processBase64Images = async (html: string) => {
+    if (!html) return html;
+    
+    // Regex to find base64 images
+    const base64Regex = /<img[^>]+src="data:image\/([^;]+);base64,([^">]+)"[^>]*>/g;
+    let match;
+    let newHtml = html;
+    const matches = [];
+    
+    // Find all matches first
+    while ((match = base64Regex.exec(html)) !== null) {
+      matches.push({
+        fullTag: match[0],
+        mimeType: `image/${match[1]}`,
+        base64Data: match[2]
+      });
+    }
+    
+    if (matches.length === 0) return html;
+    
+    setNotification({ type: 'success', message: `Optimisation des images (${matches.length})...` });
+    
+    for (const m of matches) {
+      try {
+        // Convert base64 to Blob
+        const byteCharacters = atob(m.base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: m.mimeType });
+        
+        // Upload to Convex
+        const postUrl = await generateUploadUrl();
+        const result = await fetch(postUrl, {
+          method: "POST",
+          headers: { "Content-Type": m.mimeType },
+          body: blob,
+        });
+        
+        if (!result.ok) throw new Error("Upload failed");
+        
+        const { storageId } = await result.json();
+        const url = await getStorageUrl({ storageId });
+        
+        if (url) {
+          // Replace the base64 src with the new URL in the tag
+          const newTag = m.fullTag.replace(/src="data:image\/[^;]+;base64,[^">]+" /g, `src="${url}" `);
+          // Fallback if the regex above is too strict
+          const finalTag = newTag.includes(url) ? newTag : m.fullTag.replace(/src="data:image\/[^;]+;base64,[^">]+"/g, `src="${url}"`);
+          
+          newHtml = newHtml.replace(m.fullTag, finalTag);
+        }
+      } catch (err) {
+        console.error("Failed to convert base64 image", err);
+      }
+    }
+    
+    return newHtml;
+  };
+
   const handleSave = async () => {
     if (!evaluation.title || !evaluation.category_id) {
       setNotification({ type: 'error', message: "Veuillez remplir le titre et choisir une matière." });
       return;
     }
+    
     try {
+      setLoading(true);
+      
+      // Process all questions to replace base64 images with storage URLs
+      const processedQuestions = await Promise.all(evaluation.questions.map(async (q) => {
+        const cleanQuestionText = await processBase64Images(q.question_text || '');
+        const cleanTeacherAnswer = await processBase64Images(q.teacher_answer || '');
+        const cleanStudentPrompt = q.student_prompt ? await processBase64Images(q.student_prompt) : null;
+        
+        return {
+          ...q,
+          question_text: cleanQuestionText,
+          teacher_answer: cleanTeacherAnswer,
+          student_prompt: cleanStudentPrompt
+        };
+      }));
+
       // Strip extra fields from questions to match Convex schema
-      const cleanQuestions = evaluation.questions.map(q => ({
+      const cleanQuestions = processedQuestions.map(q => ({
         id: q.id,
         section_name: q.section_name || '',
         question_text: q.question_text || '',
@@ -156,6 +238,8 @@ const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClo
     } catch (e) {
       console.error("Save error:", e);
       setNotification({ type: 'error', message: "Erreur lors de la sauvegarde." });
+    } finally {
+      setLoading(false);
     }
   };
 
