@@ -120,6 +120,20 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ evaluation, category, mode, onC
           maxPageHeight = CONTENT_HEIGHT_PN;
         }
 
+        // Anti-orphelin pour les titres de section : si c'est une section et que la question suivante ne tient pas,
+        // on bascule la section sur la page suivante.
+        if (type === 'section' && i + 1 < elements.length) {
+          const nextEl = elements[i+1] as HTMLElement;
+          const nextHeight = nextEl.offsetHeight + 12;
+          if (currentHeight + itemHeight + nextHeight > maxPageHeight && currentPageItems.length > 0) {
+            computedPages.push({ pageNumber: pageIndex, items: currentPageItems });
+            pageIndex++;
+            currentPageItems = [];
+            currentHeight = 0;
+            maxPageHeight = CONTENT_HEIGHT_PN;
+          }
+        }
+
         currentPageItems.push({
           type, data: itemData, height: itemHeight, dottedLinesHeight: dottedH, points: itemPoints
         });
