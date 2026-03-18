@@ -37,6 +37,11 @@ export const save = mutation({
       student_prompt: v.optional(v.union(v.string(), v.null())),
       order_index: v.number(),
       points: v.optional(v.number()),
+      is_mcq: v.optional(v.boolean()),
+      mcq_options: v.optional(v.array(v.object({
+        text: v.string(),
+        is_correct: v.boolean(),
+      }))),
     })),
   },
   handler: async (ctx, args) => {

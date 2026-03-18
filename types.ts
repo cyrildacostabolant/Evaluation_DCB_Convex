@@ -15,6 +15,8 @@ export interface Question {
   student_prompt: string | null; // HTML or null for dotted lines
   order_index: number;
   points: number;
+  is_mcq?: boolean;
+  mcq_options?: { text: string; is_correct: boolean }[];
 }
 
 export interface Evaluation {

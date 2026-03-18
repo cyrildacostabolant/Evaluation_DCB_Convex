@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Category, Evaluation, Question } from '../types';
 import RichTextEditor from './RichTextEditor';
-import { Plus, Trash2, ArrowLeft, GripVertical, FileText, CheckCircle, AlertCircle, X, Sparkles, Layout, Layers, Calculator, Save, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, GripVertical, FileText, CheckCircle, AlertCircle, X, Sparkles, Layout, Layers, Calculator, Save, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, ListChecks, Check, Square } from 'lucide-react';
 import { useQuery, useMutation } from 'convex/react';
 import { anyApi } from 'convex/server';
 
@@ -43,7 +43,9 @@ const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClo
         const safeEval = JSON.parse(JSON.stringify(found));
         safeEval.questions = safeEval.questions.map((q: any) => ({
            ...q,
-           points: q.points ?? 2
+           points: q.points ?? 2,
+           is_mcq: q.is_mcq ?? false,
+           mcq_options: q.mcq_options ?? []
         }));
         safeEval.is_archived = safeEval.is_archived ?? false;
         setEvaluation(safeEval);
@@ -83,7 +85,9 @@ const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClo
       teacher_answer: '',
       student_prompt: null,
       order_index: evaluation.questions.length,
-      points: 2 // Défaut 2 points
+      points: 2, // Défaut 2 points
+      is_mcq: false,
+      mcq_options: []
     };
     setEvaluation(prev => ({ ...prev, questions: [...prev.questions, newQ] }));
     // Étendre automatiquement la nouvelle question
@@ -188,6 +192,34 @@ const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClo
     return newHtml;
   };
 
+  const addMcqOption = (questionIndex: number) => {
+    const updated = [...evaluation.questions];
+    const question = updated[questionIndex];
+    const options = question.mcq_options || [];
+    updated[questionIndex] = { 
+      ...question, 
+      mcq_options: [...options, { text: '', is_correct: false }] 
+    };
+    setEvaluation(prev => ({ ...prev, questions: updated }));
+  };
+
+  const updateMcqOption = (questionIndex: number, optionIndex: number, field: 'text' | 'is_correct', value: any) => {
+    const updated = [...evaluation.questions];
+    const question = updated[questionIndex];
+    const options = [...(question.mcq_options || [])];
+    options[optionIndex] = { ...options[optionIndex], [field]: value };
+    updated[questionIndex] = { ...question, mcq_options: options };
+    setEvaluation(prev => ({ ...prev, questions: updated }));
+  };
+
+  const removeMcqOption = (questionIndex: number, optionIndex: number) => {
+    const updated = [...evaluation.questions];
+    const question = updated[questionIndex];
+    const options = (question.mcq_options || []).filter((_, i) => i !== optionIndex);
+    updated[questionIndex] = { ...question, mcq_options: options };
+    setEvaluation(prev => ({ ...prev, questions: updated }));
+  };
+
   const handleSave = async () => {
     if (!evaluation.title || !evaluation.category_id) {
       setNotification({ type: 'error', message: "Veuillez remplir le titre et choisir une matière." });
@@ -207,7 +239,9 @@ const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClo
           ...q,
           question_text: cleanQuestionText,
           teacher_answer: cleanTeacherAnswer,
-          student_prompt: cleanStudentPrompt
+          student_prompt: cleanStudentPrompt,
+          is_mcq: q.is_mcq || false,
+          mcq_options: q.mcq_options || []
         };
       }));
 
@@ -219,7 +253,9 @@ const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClo
         teacher_answer: q.teacher_answer || '',
         student_prompt: q.student_prompt,
         order_index: (q.order_index === null || isNaN(q.order_index)) ? 0 : q.order_index,
-        points: (q.points === null || isNaN(q.points)) ? 0 : q.points
+        points: (q.points === null || isNaN(q.points)) ? 0 : q.points,
+        is_mcq: q.is_mcq,
+        mcq_options: q.mcq_options
       }));
       
       const evalToSave = {
@@ -427,8 +463,17 @@ const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClo
               {isExpanded && (
                 <div className="p-4 space-y-4 bg-white">
                   {/* Question Input */}
-                  <div>
-                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 ml-1">Énoncé</label>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex justify-between items-center">
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 ml-1">Énoncé</label>
+                      <button
+                        onClick={() => updateQuestion(idx, 'is_mcq', !q.is_mcq)}
+                        className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full transition-all flex items-center gap-1.5 ${q.is_mcq ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                      >
+                        <ListChecks size={12} />
+                        {q.is_mcq ? 'Mode QCM Actif' : 'Passer en QCM'}
+                      </button>
+                    </div>
                     <textarea
                       ref={(el) => { textareaRefs.current[idx] = el; }}
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/30 focus:bg-white outline-none overflow-hidden min-h-[60px] font-medium text-slate-700 transition-all leading-relaxed resize-none text-sm"
@@ -440,6 +485,56 @@ const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClo
                       style={{ height: 'auto' }} 
                     />
                   </div>
+
+                  {/* MCQ Options */}
+                  {q.is_mcq && (
+                    <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-100 space-y-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-2">
+                          <ListChecks size={14} /> Options du QCM
+                        </h4>
+                        <button 
+                          onClick={() => addMcqOption(idx)}
+                          className="text-[10px] font-bold text-amber-700 hover:bg-amber-100 px-2 py-1 rounded transition-colors flex items-center gap-1"
+                        >
+                          <Plus size={12} /> Ajouter une option
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {(q.mcq_options || []).map((opt, optIdx) => (
+                          <div key={optIdx} className="flex items-center gap-2 animate-fade-in">
+                            <button
+                              onClick={() => updateMcqOption(idx, optIdx, 'is_correct', !opt.is_correct)}
+                              className={`w-6 h-6 rounded flex items-center justify-center transition-all ${opt.is_correct ? 'bg-emerald-500 text-white' : 'bg-white border border-slate-200 text-slate-300 hover:border-emerald-300'}`}
+                              title={opt.is_correct ? "Réponse correcte" : "Marquer comme correcte"}
+                            >
+                              {opt.is_correct ? <Check size={14} /> : <Square size={14} />}
+                            </button>
+                            <input
+                              type="text"
+                              value={opt.text}
+                              onChange={(e) => updateMcqOption(idx, optIdx, 'text', e.target.value)}
+                              placeholder={`Option ${optIdx + 1}`}
+                              className="flex-grow bg-white border border-slate-200 rounded px-3 py-1.5 text-sm font-medium text-slate-700 focus:border-amber-300 outline-none transition-all"
+                            />
+                            <button
+                              onClick={() => removeMcqOption(idx, optIdx)}
+                              className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
+                        
+                        {(q.mcq_options || []).length === 0 && (
+                          <div className="text-center py-4 text-[10px] font-bold text-amber-400 uppercase tracking-widest">
+                            Aucune option définie
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid lg:grid-cols-2 gap-4">
                     {/* Corrigé */}

@@ -153,18 +153,39 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ evaluation, category, mode, onC
 
   const renderRealQuestion = (q: Question, dottedHeight?: number, points?: number) => {
     const numberOfLines = dottedHeight ? Math.floor(dottedHeight / 30) : 1;
+    const correctCount = q.mcq_options?.filter(o => o.is_correct).length || 0;
+    const hasMultipleCorrect = correctCount > 1;
+
     return (
     <div className="mb-3 pl-2 page-item-container">
       <div className="mb-2 text-blue-900 flex justify-between items-start gap-4">
         <div className="measure-question-text flex-grow font-bold" style={contentStyle}>
           {q.question_text}
+          {q.is_mcq && hasMultipleCorrect && (
+            <span className="ml-2 text-slate-500 font-normal italic text-sm">(Plusieurs réponses possibles)</span>
+          )}
         </div>
         {points !== undefined && points > 0 && (
            <div className="font-bold text-slate-400 text-sm whitespace-nowrap pt-1">/ {points}</div>
         )}
       </div>
       <div className="pl-2">
-        {mode === 'teacher' ? (
+        {q.is_mcq ? (
+          <div className="space-y-2 mt-2">
+            {(q.mcq_options || []).map((opt, idx) => (
+              <div key={idx} className="flex items-start gap-3">
+                <div className={`w-5 h-5 border-2 border-black flex-shrink-0 mt-1 flex items-center justify-center ${mode === 'teacher' && opt.is_correct ? 'bg-black' : ''}`}>
+                  {mode === 'teacher' && opt.is_correct && (
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                  )}
+                </div>
+                <div className={`text-sm ${mode === 'teacher' && opt.is_correct ? 'font-bold' : ''}`} style={contentStyle}>
+                  {opt.text}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : mode === 'teacher' ? (
           <div className="p-3 bg-green-50 border-l-4 border-green-500 text-green-900 editor-content rounded-r-lg"
                style={contentStyle} dangerouslySetInnerHTML={{ __html: q.teacher_answer }} />
         ) : (
@@ -222,9 +243,29 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ evaluation, category, mode, onC
                return (
                 <div key={q.id} data-type="question" data-id={q.id} data-points={q.points}>
                   <div className="mb-3 pl-2">
-                    <div className="mb-2 text-blue-900 font-bold measure-question-text" style={contentStyle}>{q.question_text}</div>
+                    <div className="mb-2 text-blue-900 font-bold measure-question-text" style={contentStyle}>
+                      {q.question_text}
+                      {q.is_mcq && (q.mcq_options?.filter(o => o.is_correct).length || 0) > 1 && (
+                        <span className="ml-2 text-slate-500 font-normal italic text-sm">(Plusieurs réponses possibles)</span>
+                      )}
+                    </div>
                     <div className="pl-2">
-                      {mode === 'teacher' ? (
+                      {q.is_mcq ? (
+                        <div className="space-y-2 mt-2">
+                          {(q.mcq_options || []).map((opt, idx) => (
+                            <div key={idx} className="flex items-start gap-3">
+                              <div className={`w-5 h-5 border-2 border-black flex-shrink-0 mt-1 flex items-center justify-center ${mode === 'teacher' && opt.is_correct ? 'bg-black' : ''}`}>
+                                {mode === 'teacher' && opt.is_correct && (
+                                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                                )}
+                              </div>
+                              <div className={`text-sm ${mode === 'teacher' && opt.is_correct ? 'font-bold' : ''}`} style={contentStyle}>
+                                {opt.text}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : mode === 'teacher' ? (
                         <div className="p-3 bg-green-50 border-l-4 border-green-500 text-green-900 editor-content rounded-r-lg"
                              style={contentStyle} dangerouslySetInnerHTML={{ __html: q.teacher_answer }} />
                       ) : (
