@@ -72,10 +72,11 @@ const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClo
     el.style.height = `${el.scrollHeight}px`;
   };
 
-  const addQuestion = () => {
-    // Récupérer la section de la dernière question pour l'héritage
-    const lastQuestion = evaluation.questions[evaluation.questions.length - 1];
-    const inheritedSection = lastQuestion ? lastQuestion.section_name : 'Exercice 1';
+  const addQuestion = (insertAtIndex?: number) => {
+    const isInserting = typeof insertAtIndex === 'number';
+    const refIndex = isInserting ? insertAtIndex - 1 : evaluation.questions.length - 1;
+    const refQuestion = evaluation.questions[refIndex];
+    const inheritedSection = refQuestion ? refQuestion.section_name : 'Exercice 1';
     const newId = crypto.randomUUID();
 
     const newQ: Question = {
@@ -84,19 +85,31 @@ const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClo
       question_text: '',
       teacher_answer: '',
       student_prompt: null,
-      order_index: evaluation.questions.length,
+      order_index: isInserting ? insertAtIndex : evaluation.questions.length,
       points: 2, // Défaut 2 points
       is_mcq: false,
       mcq_options: []
     };
-    setEvaluation(prev => ({ ...prev, questions: [...prev.questions, newQ] }));
+
+    setEvaluation(prev => {
+      const newQuestions = [...prev.questions];
+      if (isInserting) {
+        newQuestions.splice(insertAtIndex, 0, newQ);
+      } else {
+        newQuestions.push(newQ);
+      }
+      return { ...prev, questions: newQuestions };
+    });
+    
     // Étendre automatiquement la nouvelle question
     setExpandedIds(prev => new Set(prev).add(newId));
     
-    // Scroll fluide vers le bas après ajout (petit délai pour laisser le rendu se faire)
-    setTimeout(() => {
-       window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-    }, 100);
+    if (!isInserting) {
+      // Scroll fluide vers le bas après ajout (petit délai pour laisser le rendu se faire)
+      setTimeout(() => {
+         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      }, 100);
+    }
   };
 
   const updateQuestion = (index: number, field: keyof Question, value: any) => {
@@ -450,13 +463,22 @@ const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClo
                   </div>
                 </div>
 
-                <button 
-                  onClick={(e) => { e.stopPropagation(); removeQuestion(idx); }} 
-                  className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all flex-shrink-0"
-                  title="Supprimer la question"
-                >
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); addQuestion(idx + 1); }} 
+                    className="p-1.5 text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all flex-shrink-0"
+                    title="Insérer une question en dessous"
+                  >
+                    <Plus size={16} />
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); removeQuestion(idx); }} 
+                    className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all flex-shrink-0"
+                    title="Supprimer la question"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
               
               {/* Expandable Body */}
@@ -592,7 +614,7 @@ const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClo
         })}
 
         <button
-          onClick={addQuestion}
+          onClick={() => addQuestion()}
           className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50/30 transition-all flex items-center justify-center gap-2 group mt-4"
         >
           <div className="p-1.5 bg-slate-100 text-slate-400 group-hover:bg-indigo-100 group-hover:text-indigo-600 rounded-lg transition-all">
