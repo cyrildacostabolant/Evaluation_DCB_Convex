@@ -4,15 +4,19 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "tsx server.ts",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "start": "node dist/server.cjs",
     "lint": "tsc --noEmit",
     "convex-sync": "echo sync",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@cerebras/cerebras_cloud_sdk": "^1.91.0",
+    "@google/genai": "^2.19.0",
     "convex": "^1.32.0",
-    "groq-sdk": "^0.37.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "katex": "^0.16.33",
     "lucide-react": "^0.563.0",
     "react": "^19.2.4",
@@ -23,8 +27,12 @@
     "remark-math": "^6.0.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.12",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }
