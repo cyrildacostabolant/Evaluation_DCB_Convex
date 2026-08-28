@@ -68,6 +68,43 @@ export const getById = query({
   },
 });
 
+// Fonctions utilitaires pour extraire les IDs de fichiers stockés dans Convex Storage
+function extractStorageIds(text: string | null | undefined): string[] {
+  if (!text) return [];
+  const ids: string[] = [];
+  // Reconnaît les URLs standard Convex (/api/storage/<storageId> ou /storage/<storageId>)
+  const storageRegex = /\/(?:api\/)?storage\/([a-zA-Z0-9_-]+)/g;
+  let match;
+  while ((match = storageRegex.exec(text)) !== null) {
+    if (match[1] && !ids.includes(match[1])) {
+      ids.push(match[1]);
+    }
+  }
+  return ids;
+}
+
+function extractAllStorageIdsFromEvaluation(evalDoc: any, questions: any[]): Set<string> {
+  const ids = new Set<string>();
+  if (evalDoc?.coverImageId) {
+    ids.add(evalDoc.coverImageId.toString());
+  }
+  for (const q of questions) {
+    for (const field of [q.question_text, q.teacher_answer, q.student_prompt]) {
+      for (const id of extractStorageIds(field)) {
+        ids.add(id);
+      }
+    }
+    if (Array.isArray(q.mcq_options)) {
+      for (const opt of q.mcq_options) {
+        for (const id of extractStorageIds(opt?.text)) {
+          ids.add(id);
+        }
+      }
+    }
+  }
+  return ids;
+}
+
 export const save = mutation({
   args: {
     id: v.optional(v.string()),
@@ -97,20 +134,22 @@ export const save = mutation({
   },
   handler: async (ctx, args) => {
     let evalId: any = null;
+    let existingDoc: any = null;
     const questionCount = args.questions.length;
 
     if (args.id) {
       try {
-        const existing = await ctx.db.get(args.id as any);
-        if (existing) {
-          evalId = existing._id;
+        existingDoc = await ctx.db.get(args.id as any);
+        if (existingDoc) {
+          evalId = existingDoc._id;
         }
       } catch {
         evalId = null;
+        existingDoc = null;
       }
     }
 
-    if (evalId) {
+    if (evalId && existingDoc) {
       // Mise à jour de l'évaluation avec le nombre de questions pour éviter tout scan ultérieur
       await ctx.db.patch(evalId, {
         title: args.title,
@@ -171,6 +210,27 @@ export const save = mutation({
           await ctx.db.delete(oldQ._id);
         }
       }
+
+      // Nettoyer les fichiers de stockage supprimés lors de l'édition
+      try {
+        const oldStorageIds = extractAllStorageIdsFromEvaluation(existingDoc, oldQuestions);
+        const newStorageIds = extractAllStorageIdsFromEvaluation(
+          { ...existingDoc, ...args },
+          args.questions
+        );
+
+        for (const oldId of oldStorageIds) {
+          if (!newStorageIds.has(oldId)) {
+            try {
+              await ctx.storage.delete(oldId as any);
+            } catch (err) {
+              console.warn("Impossible de supprimer le fichier supprimé de l'éditeur:", oldId, err);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Erreur lors du nettoyage des fichiers lors de la sauvegarde:", err);
+      }
     } else {
       // Nouvelle évaluation
       evalId = await ctx.db.insert("evaluations", {
@@ -207,17 +267,87 @@ export const remove = mutation({
     try {
       const existing = await ctx.db.get(args.id as any);
       if (!existing) return;
-      await ctx.db.delete(existing._id);
+
+      // 1. Récupérer les questions pour extraire tous les fichiers images stockés
       const oldQuestions = await ctx.db
         .query("questions")
         .withIndex("by_evaluation", (q) => q.eq("evaluation_id", existing._id))
         .collect();
+
+      // 2. Extraire et supprimer tous les fichiers dans Convex Storage
+      const storageIds = extractAllStorageIdsFromEvaluation(existing, oldQuestions);
+      for (const storageId of storageIds) {
+        try {
+          await ctx.storage.delete(storageId as any);
+        } catch (err) {
+          console.warn("Fichier de stockage introuvable ou déjà supprimé:", storageId, err);
+        }
+      }
+
+      // 3. Supprimer les questions
       for (const q of oldQuestions) {
         await ctx.db.delete(q._id);
       }
+
+      // 4. Supprimer l'évaluation
+      await ctx.db.delete(existing._id);
     } catch {
       // ignore
     }
+  },
+});
+
+// Mutation pour nettoyer tous les anciens fichiers orphelins dans File Storage
+export const cleanOrphanedFiles = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // 1. Récupérer toutes les évaluations et questions existantes
+    const allEvaluations = await ctx.db.query("evaluations").collect();
+    const allQuestions = await ctx.db.query("questions").collect();
+
+    // 2. Extraire tous les IDs de fichiers activement référencés
+    const activeStorageIds = new Set<string>();
+    for (const ev of allEvaluations) {
+      if ((ev as any).coverImageId) {
+        activeStorageIds.add((ev as any).coverImageId.toString());
+      }
+    }
+    for (const q of allQuestions) {
+      for (const field of [q.question_text, q.teacher_answer, q.student_prompt]) {
+        for (const id of extractStorageIds(field)) {
+          activeStorageIds.add(id);
+        }
+      }
+      if (Array.isArray(q.mcq_options)) {
+        for (const opt of q.mcq_options) {
+          for (const id of extractStorageIds(opt?.text)) {
+            activeStorageIds.add(id);
+          }
+        }
+      }
+    }
+
+    // 3. Récupérer tous les fichiers stockés dans Convex _storage
+    const allStoredFiles = await ctx.db.system.query("_storage").collect();
+    let deletedCount = 0;
+
+    for (const file of allStoredFiles) {
+      const fileIdStr = file._id.toString();
+      if (!activeStorageIds.has(fileIdStr)) {
+        try {
+          await ctx.storage.delete(file._id);
+          deletedCount++;
+        } catch (err) {
+          console.warn("Erreur lors de la suppression du fichier orphelin:", fileIdStr, err);
+        }
+      }
+    }
+
+    return {
+      totalStored: allStoredFiles.length,
+      deletedCount,
+      activeCount: activeStorageIds.size,
+    };
   },
 });
 

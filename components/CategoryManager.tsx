@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Category } from '../types';
-import { Trash2, Plus, Save, Pencil, X, AlertTriangle, Palette } from 'lucide-react';
+import { Trash2, Plus, Save, Pencil, X, AlertTriangle, Palette, HardDrive, Sparkles, Loader2, Check } from 'lucide-react';
 import { useQuery, useMutation } from 'convex/react';
 import { anyApi } from 'convex/server';
 
@@ -25,6 +25,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
   const addCategory = useMutation(anyApi.categories.add);
   const updateCategory = useMutation(anyApi.categories.update);
   const removeCategory = useMutation(anyApi.categories.remove);
+  const cleanOrphanedFilesMutation = useMutation(anyApi.evaluations.cleanOrphanedFiles);
 
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState(COLORS[0]);
@@ -32,6 +33,22 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
   
   const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isCleaningStorage, setIsCleaningStorage] = useState(false);
+  const [storageCleanResult, setStorageCleanResult] = useState<{ totalStored: number; deletedCount: number; activeCount: number } | null>(null);
+
+  const handleCleanStorage = async () => {
+    setIsCleaningStorage(true);
+    setStorageCleanResult(null);
+    try {
+      const result = await cleanOrphanedFilesMutation();
+      setStorageCleanResult(result);
+    } catch (err) {
+      console.error("Erreur nettoyage fichiers:", err);
+      setErrorMsg("Impossible de nettoyer le stockage des fichiers.");
+    } finally {
+      setIsCleaningStorage(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!newCatName.trim()) return;
@@ -174,6 +191,54 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
         ))}
         {categories !== undefined && categories.length === 0 && (
           <div className="col-span-full py-20 text-center text-slate-300 italic">Configurez votre première matière ci-dessus.</div>
+        )}
+      </div>
+
+      {/* Section de gestion et nettoyage du stockage des fichiers Convex */}
+      <div className="mt-12 p-8 bg-slate-900 text-white rounded-[32px] shadow-xl">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center flex-shrink-0">
+              <HardDrive size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-white flex items-center gap-2">
+                Stockage des fichiers & images
+                <span className="px-2.5 py-0.5 bg-indigo-500/30 text-indigo-300 rounded-full text-xs font-bold uppercase tracking-wider">
+                  Convex Storage
+                </span>
+              </h3>
+              <p className="text-slate-400 text-sm mt-1 max-w-xl">
+                Désormais, la suppression d'une évaluation efface automatiquement toutes ses images associées. Vous pouvez aussi purger tous les anciens fichiers orphelins non référencés en un clic.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleCleanStorage}
+            disabled={isCleaningStorage}
+            className="w-full sm:w-auto px-6 py-3.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            {isCleaningStorage ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Nettoyage en cours...
+              </>
+            ) : (
+              <>
+                <Sparkles size={18} />
+                Purger les fichiers orphelins
+              </>
+            )}
+          </button>
+        </div>
+
+        {storageCleanResult && (
+          <div className="mt-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-3 text-emerald-300 animate-fade-in">
+            <Check size={20} className="text-emerald-400 flex-shrink-0" />
+            <p className="text-sm font-medium">
+              Nettoyage terminé avec succès : <strong className="text-white">{storageCleanResult.deletedCount}</strong> fichier(s) orphelin(s) supprimé(s) de File Storage sur un total de {storageCleanResult.totalStored} ({storageCleanResult.activeCount} fichier(s) actif(s) conservé(s)).
+            </p>
+          </div>
         )}
       </div>
 
