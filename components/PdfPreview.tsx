@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Evaluation, Category, Question } from '../types';
 import { ArrowLeft, Printer } from 'lucide-react';
+import { useQuery } from 'convex/react';
+import { anyApi } from 'convex/server';
 
 interface PdfPreviewProps {
   evaluation: Evaluation;
@@ -30,6 +32,15 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ evaluation, category, mode, onC
   const [pages, setPages] = useState<Page[]>([]);
   const [isMeasuring, setIsMeasuring] = useState(true);
   const measureContainerRef = useRef<HTMLDivElement>(null);
+
+  // Si les questions ne sont pas chargées (ouverture directe depuis le Dashboard), on récupère l'évaluation complète
+  const needsFetch = !evaluation.questions || evaluation.questions.length === 0;
+  const fetchedEval = useQuery(
+    anyApi.evaluations.getById,
+    needsFetch && evaluation.id ? { id: evaluation.id } : "skip"
+  );
+  const activeEval = (needsFetch && fetchedEval) ? fetchedEval : evaluation;
+  const evalQuestions = activeEval.questions || [];
 
   // --- CONSTANTES DE DIMENSIONS ---
   const PAGE_HEIGHT = 1123; // A4 à 96 DPI
@@ -63,10 +74,10 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ evaluation, category, mode, onC
     }
   };
 
-  const sections: string[] = Array.from(new Set(evaluation.questions.map(q => q.section_name || 'Autre')));
+  const sections: string[] = Array.from(new Set(evalQuestions.map(q => q.section_name || 'Autre')));
 
   const getSectionPoints = (sectionName: string) => {
-    return evaluation.questions
+    return evalQuestions
       .filter(q => (q.section_name || 'Autre') === sectionName)
       .reduce((acc, curr) => acc + (curr.points || 0), 0);
   };
@@ -98,7 +109,7 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ evaluation, category, mode, onC
           itemHeight = el.offsetHeight + 12; // mb-3
         } else {
           const qId = el.dataset.id;
-          itemData = evaluation.questions.find(q => q.id === qId);
+          itemData = evalQuestions.find(q => q.id === qId);
           itemPoints = parseFloat(el.dataset.points || '0');
           
           // La mesure el.offsetHeight est maintenant fiable car le ghost 
@@ -149,7 +160,7 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ evaluation, category, mode, onC
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [evaluation, mode]);
+  }, [activeEval, mode]);
 
   const renderRealQuestion = (q: Question, dottedHeight?: number, points?: number) => {
     const numberOfLines = dottedHeight ? Math.floor(dottedHeight / 30) : 1;

@@ -12,8 +12,11 @@ export default defineSchema({
     title: v.string(),
     category_id: v.string(),
     is_archived: v.optional(v.boolean()),
+    question_count: v.optional(v.number()),
     coverImageId: v.optional(v.id("_storage")),
-  }),
+  })
+    .index("by_category", ["category_id"])
+    .index("by_archived", ["is_archived"]),
   questions: defineTable({
     evaluation_id: v.id("evaluations"),
     section_name: v.string(),

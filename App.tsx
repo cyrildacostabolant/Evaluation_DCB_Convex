@@ -18,13 +18,6 @@ function App() {
   
   const removeEvaluation = useMutation(anyApi.evaluations.remove);
   const toggleArchive = useMutation(anyApi.evaluations.toggleArchive);
-  const pingResult = useQuery(anyApi.evaluations.ping);
-
-  useEffect(() => {
-    if (pingResult) {
-      console.log("Backend Ping Result:", pingResult);
-    }
-  }, [pingResult]);
 
   const [selectedEvalId, setSelectedEvalId] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<{ eval: Evaluation, mode: 'student' | 'teacher' } | null>(null);
@@ -164,7 +157,7 @@ function App() {
                             <span>{new Date(ev.created_at || '').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
                           </div>
                           <span>•</span>
-                          <span>{ev.questions.length} quest.</span>
+                          <span>{ev.question_count ?? (ev.questions?.length || 0)} quest.</span>
                         </div>
                       </div>
                     </div>
@@ -263,7 +256,7 @@ function App() {
                             <span>{new Date(ev.created_at || '').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
                           </div>
                           <span>•</span>
-                          <span>{ev.questions.length} quest.</span>
+                          <span>{ev.question_count ?? (ev.questions?.length || 0)} quest.</span>
                         </div>
                       </div>
                     </div>

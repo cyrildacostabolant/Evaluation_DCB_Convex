@@ -14,7 +14,10 @@ interface EvaluationEditorProps {
 
 const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClose, onPreview }) => {
   const categories = useQuery(anyApi.categories.get);
-  const allEvals = useQuery(anyApi.evaluations.get);
+  const currentEval = useQuery(
+    anyApi.evaluations.getById,
+    evaluationId ? { id: evaluationId as any } : "skip"
+  );
   const saveEvaluationMutation = useMutation(anyApi.evaluations.save);
 
   const [evaluation, setEvaluation] = useState<Evaluation>({
@@ -33,15 +36,15 @@ const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClo
   const textareaRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
 
   useEffect(() => {
-    if (categories === undefined || allEvals === undefined) return;
+    if (categories === undefined) return;
     if (initialized) return;
 
     if (evaluationId) {
-      const found = allEvals.find((e: any) => e.id === evaluationId);
-      if (found) {
+      if (currentEval === undefined) return; // Attente du chargement ciblé
+      if (currentEval) {
         // Assurer la rétrocompatibilité si 'points' n'existe pas
-        const safeEval = JSON.parse(JSON.stringify(found));
-        safeEval.questions = safeEval.questions.map((q: any) => ({
+        const safeEval = JSON.parse(JSON.stringify(currentEval));
+        safeEval.questions = (safeEval.questions || []).map((q: any) => ({
            ...q,
            points: q.points ?? 2,
            is_mcq: q.is_mcq ?? false,
@@ -57,7 +60,7 @@ const EvaluationEditor: React.FC<EvaluationEditorProps> = ({ evaluationId, onClo
     }
     setLoading(false);
     setInitialized(true);
-  }, [categories, allEvals, evaluationId, initialized]);
+  }, [categories, currentEval, evaluationId, initialized]);
 
   useEffect(() => {
     if (notification) {

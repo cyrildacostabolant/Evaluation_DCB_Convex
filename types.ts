@@ -19,12 +19,22 @@ export interface Question {
   mcq_options?: { text: string; is_correct: boolean }[];
 }
 
+export interface EvaluationSummary {
+  id: string;
+  title: string;
+  category_id: string;
+  created_at?: string;
+  is_archived?: boolean;
+  question_count: number;
+}
+
 export interface Evaluation {
   id: string;
   title: string;
   category_id: string;
   created_at?: string;
   is_archived?: boolean;
+  question_count?: number;
   questions: Question[];
 }
 

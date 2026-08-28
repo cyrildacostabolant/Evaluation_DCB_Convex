@@ -5,7 +5,13 @@ export const get = query({
   args: {},
   handler: async (ctx) => {
     const categories = await ctx.db.query("categories").collect();
-    return categories.map(c => ({ ...c, id: c._id }));
+    return categories.map((c) => ({
+      id: c._id,
+      _id: c._id,
+      name: c.name,
+      color: c.color,
+      user_id: c.user_id,
+    }));
   },
 });
 
@@ -17,8 +23,7 @@ export const add = mutation({
   },
   handler: async (ctx, args) => {
     const id = await ctx.db.insert("categories", args);
-    const newCat = await ctx.db.get(id);
-    return { ...newCat, id: newCat!._id };
+    return { id, _id: id, ...args };
   },
 });
 
