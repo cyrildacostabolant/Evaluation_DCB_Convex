@@ -12,19 +12,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@cerebras/cerebras_cloud_sdk": "^1.91.0",
-    "@google/genai": "^2.19.0",
     "convex": "^1.32.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "katex": "^0.16.33",
     "lucide-react": "^0.563.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "react-markdown": "^10.1.0",
-    "rehype-katex": "^7.0.1",
-    "remark-gfm": "^4.0.1",
-    "remark-math": "^6.0.0"
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

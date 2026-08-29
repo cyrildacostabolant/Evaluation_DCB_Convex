@@ -1,14 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { Tab, Evaluation, Category } from './types';
-import { LayoutGrid, FilePlus, BookOpen, Clock, Tags, FileText, GraduationCap, X, Trash2, AlertTriangle, ChevronRight, Sparkles, Archive, ArchiveRestore, BrainCircuit } from 'lucide-react';
+import { LayoutGrid, FilePlus, BookOpen, Clock, Tags, FileText, GraduationCap, X, Trash2, AlertTriangle, ChevronRight, Sparkles, Archive, ArchiveRestore } from 'lucide-react';
 import { useQuery, useMutation } from 'convex/react';
 import { anyApi } from 'convex/server';
 
 import CategoryManager from './components/CategoryManager';
 import EvaluationEditor from './components/EvaluationEditor';
 import PdfPreview from './components/PdfPreview';
-import AiSearch from './components/AiSearch';
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -304,14 +303,6 @@ function App() {
               <Archive size={20} className={`${activeTab === 'archives' ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
               <span className="text-[9px] font-bold uppercase tracking-wider">Archives</span>
             </button>
-            <button
-              onClick={() => setActiveTab('ai_search')}
-              className={`p-3 rounded-xl transition-all flex flex-col items-center gap-1 group ${activeTab === 'ai_search' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
-              title="Recherche I.A."
-            >
-              <BrainCircuit size={20} className={`${activeTab === 'ai_search' ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
-              <span className="text-[9px] font-bold uppercase tracking-wider">I.A.</span>
-            </button>
           </div>
           
           <div className="mt-auto mb-4 text-slate-300 font-black text-[10px] vertical-text tracking-[0.2em] opacity-50">
@@ -325,7 +316,6 @@ function App() {
         <div className="print:hidden">
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'archives' && renderArchives()}
-          {activeTab === 'ai_search' && <AiSearch />}
           
           {activeTab === 'categories' && (
             <div className="p-8">

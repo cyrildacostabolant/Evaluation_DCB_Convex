@@ -38,4 +38,4 @@ export interface Evaluation {
   questions: Question[];
 }
 
-export type Tab = 'dashboard' | 'categories' | 'editor' | 'preview' | 'archives' | 'ai_search';
+export type Tab = 'dashboard' | 'categories' | 'editor' | 'preview' | 'archives';
