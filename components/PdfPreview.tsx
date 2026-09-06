@@ -82,6 +82,9 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ evaluation, category, mode, onC
       .reduce((acc, curr) => acc + (curr.points || 0), 0);
   };
 
+  const totalEvaluationPoints = evalQuestions.reduce((acc, q) => acc + (q.points || 0), 0);
+  const formattedTotalPoints = totalEvaluationPoints % 1 === 0 ? totalEvaluationPoints : Number(totalEvaluationPoints.toFixed(2));
+
   useLayoutEffect(() => {
     if (!measureContainerRef.current) return;
 
@@ -236,7 +239,7 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ evaluation, category, mode, onC
                   <span className="font-bold text-sm mb-1" style={{ color: '#dc2626' }}>({sectionPoints} pts)</span>
                 </div>
             </div>
-            {evaluation.questions.filter(q => (q.section_name || 'Autre') === section).map(q => {
+            {evalQuestions.filter(q => (q.section_name || 'Autre') === section).map(q => {
                // Calcul du nombre de lignes pour le mode élève sans prompt
                const tempDiv = document.createElement('div');
                tempDiv.style.width = '190mm'; // Largeur estimée contenu
@@ -338,8 +341,23 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ evaluation, category, mode, onC
                     </div>
                   </div>
                   <div className="h-[3cm] flex border-2 border-black">
-                    <div className="w-[80%] border-r-2 border-black p-2 relative"><span className="text-[10px] text-gray-500 uppercase absolute top-1 left-2 font-bold">Commentaires</span></div>
-                    <div className="w-[20%] p-2 relative flex flex-col justify-end items-center"><span className="text-[10px] text-gray-500 uppercase absolute top-1 left-2 font-bold">Note</span><div className="text-3xl font-black text-slate-800">/ 20</div></div>
+                    <div className="w-[70%] border-r-2 border-black p-2 relative">
+                      <span className="text-[10px] text-gray-500 uppercase absolute top-1 left-2 font-bold">Commentaires</span>
+                    </div>
+                    <div className="w-[30%] flex">
+                      <div className="w-1/2 border-r-2 border-black p-2 relative flex flex-col justify-end items-center">
+                        <span className="text-[10px] text-gray-500 uppercase absolute top-1 left-2 font-bold">Note</span>
+                        <div className="text-2xl sm:text-3xl font-black text-slate-800 whitespace-nowrap">
+                          / {totalEvaluationPoints > 0 ? formattedTotalPoints : '...'}
+                        </div>
+                      </div>
+                      <div className="w-1/2 p-2 relative flex flex-col justify-end items-center">
+                        <span className="text-[10px] text-gray-500 uppercase absolute top-1 left-2 font-bold">Note</span>
+                        <div className="text-2xl sm:text-3xl font-black text-slate-800 whitespace-nowrap">
+                          / 20
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
